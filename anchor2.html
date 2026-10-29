@@ -1,1 +1,890 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Secret Operation</title>
+<link href="https://fonts.googleapis.com/css2?family=VT323&family=Caveat:wght@700&display=swap" rel="stylesheet">
+<style>
+  :root{ --g:#33ff66; --gd:#22b84a; --gdim:#145c27; --bg:#000; }
+  *{box-sizing:border-box}
+  html,body{background:#000}
+  body{
+    margin:0; color:var(--g); font-family:'VT323','Courier New',monospace; font-size:22px; line-height:1.3;
+    text-shadow:0 0 4px rgba(51,255,102,.55);
+  }
+  /* CRT scanlines + vignette */
+  body::after{
+    content:''; position:fixed; inset:0; pointer-events:none; z-index:200;
+    background:
+      repeating-linear-gradient(0deg, rgba(0,0,0,.28) 0 1px, transparent 1px 3px),
+      radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,.55) 100%);
+  }
+  .crt{max-width:980px; margin:0 auto; min-height:100vh; display:flex; flex-direction:column; border-left:1px solid var(--gdim); border-right:1px solid var(--gdim); animation:flicker 6s infinite}
+  @keyframes flicker{0%,97%,100%{opacity:1}98%{opacity:.85}99%{opacity:.95}}
+  @keyframes blink{50%{opacity:0}}
+  .inv{background:var(--g); color:#000; text-shadow:none; padding:0 6px}
+  .dim{color:var(--gd)}
+  .cursor::after{content:'_'; animation:blink 1s steps(1) infinite}
 
+  /* ---------- BARS ---------- */
+  .titlebar{background:var(--g); color:#000; text-shadow:none; padding:2px 10px; display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap}
+  .status{border-bottom:1px solid var(--gdim); padding:6px 10px; display:flex; flex-wrap:wrap; gap:4px 22px; align-items:center}
+  .st-step{color:var(--gdim); margin-right:4px}
+  .st-step.done{color:var(--gd)}
+  .st-step.active{background:var(--g); color:#000; text-shadow:none; padding:0 4px}
+  .a{display:inline-block}
+  .a.on{background:var(--g); color:#000; text-shadow:none; animation:blink .7s steps(1) infinite}
+  main{flex:1; padding:16px 18px 40px}
+  .fkeys{position:sticky; bottom:0; background:#000; border-top:1px solid var(--gdim); display:flex; gap:18px; padding:4px 10px; flex-wrap:wrap; z-index:30}
+  .fkeys button{background:none; border:none; color:var(--g); font:inherit; cursor:pointer; text-shadow:inherit; padding:0}
+  .fkeys button b{background:var(--g); color:#000; padding:0 4px; text-shadow:none; font-weight:normal}
+
+  /* ---------- COMMON ---------- */
+  pre.ascii{line-height:1.02; margin:4px 0 10px; font-size:19px; white-space:pre; overflow-x:auto}
+  .mhead{margin:0 0 6px; font-size:30px; letter-spacing:1px}
+  .obj{border-left:4px solid var(--g); padding:4px 0 4px 12px; margin:10px 0 12px}
+  .obj .label{color:#000; background:var(--g); text-shadow:none; padding:0 6px; margin-right:6px}
+  .warn{color:var(--gd)}
+  .btn{background:#000; color:var(--g); border:1px solid var(--g); font:inherit; padding:2px 14px; cursor:pointer; text-shadow:inherit}
+  .btn::before{content:'[ '} .btn::after{content:' ]'}
+  .btn:hover,.btn:focus{background:var(--g); color:#000; text-shadow:none; outline:none}
+  .row{display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-top:16px}
+  .hint-btn{background:#000; color:var(--gd); border:1px dashed var(--gd); font:inherit; cursor:pointer; padding:0 10px; text-shadow:inherit}
+  .hint-btn:hover{color:#000; background:var(--gd)}
+  .hint-panel{display:none; margin-top:8px; border:1px dashed var(--g); padding:8px 12px; font-family:'D2Coding','NanumGothicCoding','Malgun Gothic',monospace; font-size:16px; line-height:1.7}
+  .hint-panel.show{display:block}
+  .flash main{animation:invert .25s steps(1) 2}
+  @keyframes invert{50%{filter:invert(1)}}
+
+  /* ---------- M1 ---------- */
+  .passage{border:1px solid var(--gdim); padding:12px 14px; line-height:1.75; font-size:23px}
+  .w{padding:0 2px; cursor:pointer}
+  .w:hover{background:var(--g); color:#000; text-shadow:none}
+  .tg.found .w{background:var(--gd); color:#000; text-shadow:none; cursor:default}
+  .w.bad{text-decoration:line-through; color:var(--gdim)}
+  .slots{display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:4px 14px; margin-top:8px}
+  .slot{color:var(--gdim)}
+  .slot.open{color:var(--g)}
+
+  /* ---------- OPTIONS ---------- */
+  .match{display:grid; grid-template-columns:1fr 1.7fr; gap:16px; margin-top:8px}
+  .col{display:flex; flex-direction:column; gap:6px}
+  .opt{display:block; width:100%; text-align:left; background:#000; color:var(--g); border:1px solid var(--gdim); font:inherit; padding:4px 10px; cursor:pointer; text-shadow:inherit}
+  .opt:hover:not(:disabled){border-color:var(--g); background:#0a1f0f}
+  .opt.sel{background:var(--g); color:#000; text-shadow:none}
+  .opt.ok{border-color:var(--gd); color:var(--gd); cursor:default}
+  .opt.ok::before{content:'✓ '}
+  .opt.no{background:var(--g); color:#000; text-shadow:none; animation:blink .15s steps(1) 3}
+  .opt.caught{background:var(--g); color:#000; text-shadow:none}
+  .opt:disabled{cursor:default}
+  .opts{display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:6px}
+  .scene{border:1px solid var(--gdim); padding:12px 14px; font-size:25px; margin-bottom:12px}
+  .blank{display:inline-block; min-width:150px; border-bottom:2px solid var(--g); text-align:center; color:transparent; text-shadow:none}
+  .blank.filled{color:#000; background:var(--g)}
+  .explain{border:1px dashed var(--g); padding:8px 12px; margin-top:12px}
+
+  /* ---------- M4 ---------- */
+  .field{border:1px solid var(--gdim); padding:8px 12px; margin-bottom:10px}
+  .field.passed{border-color:var(--g)}
+  .prompt{display:flex; gap:8px; align-items:center; margin-top:4px}
+  .prompt input{flex:1; background:#000; color:var(--g); border:none; border-bottom:1px dashed var(--g); font:inherit; padding:2px 4px; outline:none; caret-color:var(--g); text-shadow:inherit}
+  .status-line{min-height:24px; color:var(--gd)}
+
+  /* ---------- OVERLAY ---------- */
+  .overlay{position:fixed; inset:0; background:rgba(0,0,0,.88); display:flex; align-items:center; justify-content:center; z-index:80; padding:14px}
+  .overlay.hidden{display:none}
+  .doc{background:#000; border:2px solid var(--g); box-shadow:0 0 24px rgba(51,255,102,.3); max-width:640px; width:100%; max-height:92vh; overflow:auto; padding:16px 20px}
+  .doc .line{margin:4px 0; min-height:26px; word-break:break-word}
+  .doc .line.key{font-size:28px}
+  .granted{display:none; text-align:center; margin-top:10px}
+  .granted.show{display:block; animation:blink .2s steps(1) 4}
+  .actions{margin-top:12px; text-align:right; visibility:hidden}
+  .actions.show{visibility:visible}
+
+  /* ---------- PASSWORD ---------- */
+  .vault-wrap{display:flex; gap:28px; flex-wrap:wrap; align-items:flex-start; justify-content:center; margin-top:6px}
+  .term{border:1px solid var(--g); padding:12px 16px; width:320px}
+  .pwscreen{font-size:40px; letter-spacing:6px; text-align:center; border:1px solid var(--gdim); margin:8px 0 12px; padding:4px}
+  .pwscreen.deny{font-size:30px; letter-spacing:1px; background:var(--g); color:#000; text-shadow:none}
+  .keys{display:grid; grid-template-columns:repeat(3,1fr); gap:6px}
+  .key{background:#000; color:var(--g); border:1px solid var(--g); font:inherit; font-size:28px; padding:2px 0; cursor:pointer; text-shadow:inherit}
+  .key:hover{background:var(--g); color:#000; text-shadow:none}
+  .key.wide{font-size:20px}
+  .notes{width:250px; border:1px dashed var(--g); padding:6px 12px 12px; transform:rotate(3deg)}
+  .notes .nh{background:var(--g); color:#000; text-shadow:none; padding:0 6px; margin:-6px -12px 8px}
+  .notes .hand{font-family:'Caveat',cursive; font-size:24px; line-height:1.1}
+  .notes .code{font-family:'Caveat',cursive; font-size:70px; letter-spacing:8px; line-height:1; margin:8px 0}
+
+  /* ---------- ENDING ---------- */
+  .recap{display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:6px; margin-top:8px}
+  .recap div{border:1px solid var(--gdim); padding:6px 10px; font-size:20px}
+  .recap .ko{font-family:'D2Coding','Malgun Gothic',monospace; font-size:14px; color:var(--gd)}
+  .typed div{min-height:26px}
+
+  /* ---------- TOAST ---------- */
+  .toast{position:fixed; left:50%; bottom:44px; transform:translate(-50%,200px); background:#000; border:1px solid var(--g); padding:6px 14px; max-width:92vw; z-index:90; transition:transform .25s}
+  .toast.show{transform:translate(-50%,0)}
+  .toast.bad{background:var(--g); color:#000; text-shadow:none}
+
+  /* ---------- DEBUG ---------- */
+  .debug{position:fixed; right:10px; top:70px; width:290px; background:#000; border:1px dashed var(--g); padding:8px 10px; z-index:120; font-size:19px; display:none}
+  .debug.show{display:block}
+  .debug .dh{background:var(--g); color:#000; text-shadow:none; padding:0 6px; margin:-8px -10px 6px; display:flex; justify-content:space-between}
+  .debug .dh button{background:none; border:none; font:inherit; cursor:pointer}
+  .debug .grid{display:grid; grid-template-columns:repeat(4,1fr); gap:4px; margin:4px 0 8px}
+  .debug button.d{background:#000; color:var(--g); border:1px solid var(--gdim); font:inherit; font-size:17px; cursor:pointer; padding:1px 2px}
+  .debug button.d:hover{border-color:var(--g)}
+  .debug button.d.on{background:var(--g); color:#000}
+  .debug .full{width:100%; margin-top:4px}
+  .debug .info{border-top:1px dashed var(--gdim); margin-top:6px; padding-top:4px; font-size:17px}
+  .dbgtag{display:none; color:#000; background:var(--gd); text-shadow:none; padding:0 4px; font-size:16px; margin-left:6px}
+  .dbg-ans .dbgtag{display:inline}
+  .dbg-ans .tg, .dbg-ans .ans{outline:1px dashed var(--g); outline-offset:2px}
+
+  @media (max-width:640px){
+    body{font-size:20px}
+    .match{grid-template-columns:1fr}
+    pre.ascii{font-size:13px}
+    .scene{font-size:21px}
+    .debug{left:8px; right:8px; width:auto; top:auto; bottom:44px}
+  }
+</style>
+</head>
+<body>
+<div class="crt">
+  <div class="titlebar"><span>C:\SECRETOP\HACK.EXE</span><span>TARGET: B.O.R.E.D. MAINFRAME</span></div>
+  <div class="status">
+    <span id="steps"></span>
+    <span>ALARM <span id="alarm"></span> <span class="dim" id="left"></span></span>
+    <span>PASSWORD <span id="memo">_ _ _ _</span></span>
+  </div>
+  <main id="app"></main>
+  <div class="fkeys">
+    <button id="fHint"><b>F1</b> HINT</button>
+    <button id="fDebug"><b>F9</b> DEBUG</button>
+    <span class="dim" style="margin-left:auto">SECRET OPERATION v1.0</span>
+  </div>
+</div>
+
+<div id="overlay" class="overlay hidden"></div>
+<div id="toast" class="toast"></div>
+
+<div class="debug" id="debug">
+  <div class="dh"><span>DEBUG MODE</span><button id="dbgClose">[X]</button></div>
+  <div>JUMP TO:</div>
+  <div class="grid">
+    <button class="d" data-go="0">BOOT</button><button class="d" data-go="1">M1</button>
+    <button class="d" data-go="2">M2</button><button class="d" data-go="3">M3</button>
+    <button class="d" data-go="4">M4</button><button class="d" data-go="5">PWD</button>
+    <button class="d" data-go="6">END</button><button class="d" data-act="restart">NEW</button>
+  </div>
+  <button class="d full" data-act="answers" id="dbgAns">SHOW ANSWERS: OFF</button>
+  <button class="d full" data-act="clear">CLEAR CURRENT MISSION</button>
+  <button class="d full" data-act="fill">AUTO-FILL M4 SENTENCES</button>
+  <div class="grid" style="grid-template-columns:1fr 1fr">
+    <button class="d" data-act="strike">+1 ALARM</button>
+    <button class="d" data-act="reset">RESET ALARM</button>
+  </div>
+  <button class="d full" data-act="code">NEW PASSWORD</button>
+  <div class="info" id="dbgInfo"></div>
+</div>
+
+<script>
+/* =========================================================
+   DATA
+   ========================================================= */
+const EX = [
+  {id:'charge', p:'in charge of',      d:'to be the person who manages or controls something',   ko:'~을 담당하는, 책임지는'},
+  {id:'part',   p:'take part in',      d:'to join an activity or event',                          ko:'~에 참여하다'},
+  {id:'figure', p:'figure out',        d:'to find an answer or understand something',             ko:'알아내다, 이해하다'},
+  {id:'work',   p:'work on',           d:'to spend time making or improving something',           ko:'~에 공을 들이다, ~을 작업하다'},
+  {id:'cut',    p:'cut down on',       d:'to use, eat, or do less of something',                  ko:'~을 줄이다'},
+  {id:'diff',   p:'make a difference', d:'to have a good effect; to change things in a good way', ko:'변화를 가져오다, 효과가 있다'}
+];
+const byId = Object.fromEntries(EX.map(e => [e.id, e]));
+
+const PASSAGE = [
+  "Our class is preparing for the school festival. Mina is ", {id:'charge'},
+  " the English booth. She asked everyone to ", {id:'part'},
+  " a short quiz game. At first, the team could not ", {id:'figure'},
+  " how to make the activity interesting. They decided to ", {id:'work'},
+  " a mystery theme. After testing the game, they decided to ", {id:'cut'},
+  " long instructions. They hope these changes will ", {id:'diff'},
+  " for the students who visit the booth."
+];
+
+const FIELD = [
+  {id:'charge', tag:'SNACK BOOTH', s:'Jisu is ___ the snack booth. She decides the menu and the prices.'},
+  {id:'part',   tag:'DANCE STAGE', s:'Over 50 students want to ___ the dance contest this year.'},
+  {id:'figure', tag:'QUIZ ROOM',   s:'This quiz is really hard. Can you help me ___ the answer?'},
+  {id:'work',   tag:'ART ROOM',    s:'Our team will ___ the festival poster all afternoon.'},
+  {id:'cut',    tag:'CAFETERIA',   s:'We need to ___ paper cups. They make too much trash.'},
+  {id:'diff',   tag:'MAIN GATE',   s:'Even a small smile can ___ for a nervous visitor.'}
+];
+
+const SAB = [
+  {list:[
+    {t:'Mina is in charge of the English booth.'},
+    {t:'We want to take part on the quiz game.', bad:true},
+    {t:'They are working on a new poster.'}],
+   exp:'ERROR: "take part ON" → FIX: "take part IN". The small word matters!'},
+  {list:[
+    {t:'I finally figured out the secret code.'},
+    {t:'We should cut down on fun games because everyone loves them.', bad:true},
+    {t:'Short instructions can make a difference.'}],
+   exp:'ERROR: "cut down on" = use or do LESS. We don\'t want less of something everyone loves!'},
+  {list:[
+    {t:'Who is in charge of the music?'},
+    {t:'Many students took part in the festival.'},
+    {t:'This long speech will make a difference because nobody will listen.', bad:true}],
+   exp:'ERROR: "make a difference" = have a GOOD effect. If nobody listens, it does NOT make a difference.'},
+  {list:[
+    {t:'Can you figure up this puzzle?', bad:true},
+    {t:'Mina is working on the quiz questions.'},
+    {t:'Let\'s cut down on long instructions.'}],
+   exp:'ERROR: "figure UP" → FIX: "figure OUT".'}
+];
+
+const PROMPTS = {
+  charge:{q:'What job do you want at the festival?',         ex:'I want to be in charge of the music.'},
+  part:  {q:'What festival event will you join?',            ex:'I will take part in the singing contest.'},
+  figure:{q:'What is hard for you to understand or solve?',  ex:'I can\'t figure out math problems quickly.'},
+  work:  {q:'What are you making or practicing these days?', ex:'I am working on my English project.'},
+  cut:   {q:'What do you want to use, eat, or do less?',     ex:'I want to cut down on snacks.'},
+  diff:  {q:'What small action can help other people?',      ex:'Picking up trash can make a difference.'}
+};
+
+const RX = {
+  charge:/\bin charge of\b/,
+  part:  /\b(take|takes|took|taking|taken) part in\b/,
+  figure:/\b(figure|figures|figured|figuring)( [a-z']+){0,2} out\b/,
+  work:  /\b(work|works|worked|working) on\b/,
+  cut:   /\b(cut|cuts|cutting) down on\b/,
+  diff:  /\b(make|makes|made|making) (a |an |no |some )?([a-z]+ )?difference\b/
+};
+
+const KO_ALL = EX.map(e => `<b>${e.p}</b> : ${e.ko}`).join('<br>');
+
+/* =========================================================
+   ASCII ART
+   ========================================================= */
+const ART_LOGO = String.raw`
+ ___ ___  ___ ___ ___ _____
+/ __| __|/ __| _ \ __|_   _|
+\__ \ _|| (__|   / _|  | |
+|___/___|\___|_|_\___| |_|
+   O  P  E  R  A  T  I  O  N`;
+
+const ART_PC = String.raw`
+   .---------------------------.
+   |  B.O.R.E.D. MAINFRAME 6.6 |
+   |  ------------------------ |
+   |  STATUS : LOCKED          |
+   |  PASSWORD : ????          |
+   '---------------------------'
+          ____|_______|____
+         [_________________]`;
+
+const ART_LOCK = String.raw`
+      _________
+     /  _____  \
+    /  /     \  \
+    |  |     |  |
+  __|__|_____|__|__
+ |                 |
+ |    .-------.    |
+ |    | ##### |    |
+ |    '-------'    |
+ |_________________|`;
+
+const ART_UNLOCK = String.raw`
+      _________
+     /  _____  \
+    /  /     \  \
+    |  |     |  |
+    |  |
+  __|__|___________
+ |                 |
+ |    .-------.    |
+ |    | OPEN! |    |
+ |    '-------'    |
+ |_________________|`;
+
+const ART_TRACED = String.raw`
+  ##################################
+  #                                #
+  #   !!  CONNECTION  TRACED  !!   #
+  #                                #
+  ##################################`;
+
+const ART_GRANTED = String.raw`
+ +================================+
+ |   >>>  ACCESS  GRANTED  <<<    |
+ +================================+`;
+
+const ART_BADGE = String.raw`
+     .----------------.
+    /    SECRET  OP    \
+   |    [  AGENT 8  ]   |
+    \     CLEARED      /
+     '----------------'`;
+
+/* =========================================================
+   STATE & HELPERS
+   ========================================================= */
+const S = {stage:0, strikes:0, total:0, stageM:0, code:[], got:0, locked:false, picks:[], keyH:null, run:0, debug:false, answers:false};
+const app = document.getElementById('app');
+const overlay = document.getElementById('overlay');
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const shuffle = a => { const b = [...a]; for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; };
+
+let actx = null;
+function beep(f, d = .08, type = 'square') {
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type; o.frequency.value = f; g.gain.value = .04;
+    o.connect(g); g.connect(actx.destination);
+    o.start(); g.gain.exponentialRampToValueAtTime(.0001, actx.currentTime + d); o.stop(actx.currentTime + d);
+  } catch (e) {}
+}
+
+let toastTimer = null;
+function toast(msg, type = '') {
+  const t = $('#toast');
+  t.innerHTML = '&gt; ' + msg; t.className = 'toast show ' + type;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.className = 'toast ' + type, 2400);
+}
+
+function updateHUD() {
+  const names = ['M1', 'M2', 'M3', 'M4', 'PWD'];
+  $('#steps').innerHTML = names.map((n, i) => {
+    const s = i + 1, c = S.stage > s ? 'done' : S.stage === s ? 'active' : '';
+    return `<span class="st-step ${c}">${S.stage > s ? '✓' : ''}${n}</span>`;
+  }).join('');
+  $('#alarm').innerHTML = [0, 1, 2].map(i => `<span class="a ${i < S.strikes ? 'on' : ''}">[${i < S.strikes ? '!' : ' '}]</span>`).join('');
+  $('#left').textContent = `(${3 - S.strikes} left)`;
+  $('#memo').textContent = S.code.map((d, i) => i < S.got ? d : '_').join(' ');
+  updateDebugInfo();
+}
+
+function hintBlock(html) {
+  return `<button class="hint-btn" onclick="toggleHint()">[F1] HINT · 한국어 힌트</button><div class="hint-panel">${html}</div>`;
+}
+function toggleHint() { const p = $('.hint-panel'); if (p) p.classList.toggle('show'); }
+
+function head(tag, title, objective, hint, extra = '') {
+  return `<div class="mhead"><span class="inv">${tag}</span> ${title}</div>
+    <div class="obj"><span class="label">GOAL</span>${objective}${extra ? `<div class="warn">${extra}</div>` : ''}</div>
+    ${hint ? hintBlock(hint) : ''}`;
+}
+
+function strike(msg) {
+  if (S.locked) return;
+  S.strikes++; S.total++; S.stageM++; updateHUD();
+  document.body.classList.remove('flash'); void document.body.offsetWidth; document.body.classList.add('flash');
+  beep(120, .3, 'sawtooth');
+  if (S.strikes >= 3) {
+    S.locked = true;
+    toast('ALARM! ' + msg, 'bad');
+    setTimeout(gameOver, 900);
+  } else {
+    toast(`WARNING: B.O.R.E.D. noticed you! ${msg}`, 'bad');
+  }
+}
+
+function closeOverlay() { overlay.classList.add('hidden'); overlay.innerHTML = ''; }
+
+function go(n) {
+  S.run++; S.stage = n; S.stageM = 0; S.locked = false;
+  if (S.keyH) { document.removeEventListener('keydown', S.keyH); S.keyH = null; }
+  closeOverlay();
+  [briefing, stage1, stage2, stage3, stage4, vault, ending][n]();
+  updateHUD();
+  window.scrollTo({top:0});
+}
+
+function newGame() {
+  S.code = Array.from({length:4}, () => Math.floor(Math.random() * 10));
+  S.got = 0; S.strikes = 0; S.total = 0;
+  go(0);
+}
+
+/* typed lines (click to skip) */
+function typeLines(el, lines, speed, done) {
+  const tok = S.run; let i = 0, fast = false;
+  el.onclick = () => fast = true;
+  (function next() {
+    if (tok !== S.run) return;
+    if (i >= lines.length) { el.onclick = null; done && done(); return; }
+    const d = document.createElement('div'); d.innerHTML = lines[i] || '&nbsp;'; el.appendChild(d); i++;
+    if (!fast) beep(900, .015);
+    setTimeout(next, fast ? 0 : speed);
+  })();
+}
+
+/* decrypt effect: ████ → random chars → real text */
+function decrypt(el, html, ms, done) {
+  const tok = S.run;
+  const tmp = document.createElement('div'); tmp.innerHTML = html;
+  const plain = tmp.textContent, chars = '█▓▒░#$%&@*01<>/';
+  const steps = 9; let t = 0;
+  const iv = setInterval(() => {
+    if (tok !== S.run) { clearInterval(iv); return; }
+    t++;
+    const ratio = t / steps;
+    el.textContent = plain.split('').map((c, i) => c === ' ' ? ' ' : (i / plain.length < ratio ? c : chars[Math.random() * chars.length | 0])).join('');
+    if (t >= steps) { clearInterval(iv); el.innerHTML = html; done && done(); }
+  }, ms / steps);
+}
+
+/* =========================================================
+   GAME OVER
+   ========================================================= */
+function gameOver() {
+  beep(90, .7, 'sawtooth');
+  overlay.innerHTML = `
+    <div class="doc">
+      <pre class="ascii">${ART_TRACED}</pre>
+      <div>&gt; B.O.R.E.D. found your computer!</div>
+      <div>&gt; Punishment: read a 400-page manual about how to open a door.</div>
+      <div>&gt; Handler M cut the cable just in time. You are safe.</div>
+      <div style="margin-top:8px">&gt; Restart <span class="inv">MISSION ${S.stage}</span> and try again.<span class="cursor"></span></div>
+      <div class="actions show"><button class="btn" id="retry">RETRY MISSION</button></div>
+    </div>`;
+  overlay.classList.remove('hidden');
+  $('#retry').onclick = () => { S.strikes = 0; go(S.stage); };
+}
+
+/* =========================================================
+   MISSION RESULT (decrypt each line)
+   ========================================================= */
+const REPORTS = {
+  1:{title:'INTERCEPT',
+     lines:() => ['Secret expressions found: 6 / 6', 'in charge of · take part in · figure out', 'work on · cut down on · make a difference'],
+     intel:`INTEL: Mina's job "in charge of the English booth" may be a cover story...`},
+  2:{title:'DECRYPT',
+     lines:() => EX.map(e => `<b>${e.p}</b> = ${e.d}`),
+     intel:`INTEL: The principal's plant moved 3 cm during this mission. Suspicious.`},
+  3:{title:'FIREWALL',
+     lines:() => ['Firewall checks passed: 4 / 4', 'Corrupted sentences found: 2 / 2', 'TIP: take part IN · figure OUT · cut down ON'],
+     intel:`INTEL: B.O.R.E.D. agents are printing 900-page instructions on the copy machine.`},
+  4:{title:'UPLOAD',
+     lines:() => ['Report uploaded: 3 sentences', 'Used: ' + S.picks.map(e => `<b>${e.p}</b>`).join(' · ')],
+     intel:`INTEL: Handler M read your report and smiled. That has never happened before.`}
+};
+
+function complete(n) {
+  S.locked = true;
+  const r = REPORTS[n];
+  const lines = [...r.lines(), `Mistakes in this mission: ${S.stageM}`,
+                 `<span class="inv">PASSWORD NUMBER #${n} : ${S.code[n - 1]}</span> &nbsp;&gt;&gt; saved to NOTES.TXT`, r.intel];
+  overlay.innerHTML = `
+    <div class="doc">
+      <div class="inv">MISSION ${n} RESULT // ${r.title}</div>
+      <div class="dim" style="margin:4px 0 8px">&gt; decrypting result file...</div>
+      ${lines.map((l, i) => `<div class="line ${i === lines.length - 2 ? 'key' : ''}"></div>`).join('')}
+      <pre class="ascii granted" id="granted">${ART_GRANTED}</pre>
+      <div class="actions" id="acts"><button class="btn" id="nextBtn">${n < 4 ? 'NEXT MISSION' : 'GO TO LOGIN'}</button></div>
+    </div>`;
+  overlay.classList.remove('hidden');
+  const els = $$('.line', overlay);
+  els.forEach((el, i) => { const tmp = document.createElement('div'); tmp.innerHTML = lines[i]; el.textContent = tmp.textContent.replace(/[^ ]/g, '█'); });
+  let i = 0;
+  (function next() {
+    if (i >= els.length) {
+      $('#granted').classList.add('show'); beep(660, .12, 'triangle'); setTimeout(() => beep(990, .15, 'triangle'), 120);
+      S.got = Math.max(S.got, n); updateHUD();
+      $('#acts').classList.add('show'); $('#nextBtn').focus();
+      return;
+    }
+    beep(300 + i * 50, .04);
+    decrypt(els[i], lines[i], 380, () => { i++; setTimeout(next, 120); });
+  })();
+  $('#nextBtn').onclick = () => go(n + 1);
+}
+
+/* =========================================================
+   0. BOOT / BRIEFING
+   ========================================================= */
+function briefing() {
+  app.innerHTML = `
+    <pre class="ascii">${ART_LOGO}</pre>
+    <div class="typed" id="typed"></div>
+    <div class="row" id="startRow" style="visibility:hidden">
+      <span class="dim">(Click the text to skip typing)</span>
+      <button class="btn" id="goBtn">START HACKING</button>
+    </div>`;
+  const L = [
+    'C:\\&gt; CONNECTING TO HQ ........ <b>OK</b>',
+    'FROM: Handler M &nbsp;&nbsp; TO: Agent 8',
+    '',
+    'Agent 8, the school festival is in danger.',
+    'A secret group, <span class="inv">B.O.R.E.D.</span> (Bureau Of Really Endless Directions),',
+    'wants to make the festival boring with super long instructions.',
+    '',
+    `<pre class="ascii" style="margin:0">${ART_PC}</pre>`,
+    '',
+    '<span class="inv">YOUR MISSION</span> Hack their mainframe.',
+    ' 1) Clear <b>4 missions</b> with 6 secret English expressions.',
+    ' 2) Each mission gives you <b>1 password number</b>.',
+    ' 3) Type the 4-digit password and break in.',
+    '',
+    '<span class="inv">RULES</span>',
+    ' [!] <b>3 mistakes = ALARM.</b> You restart that mission.',
+    ' [?] Stuck? Press <b>F1 HINT</b> for Korean hints.',
+    '',
+    '<span class="dim">P.S. They are everywhere. Even the principal\'s plant may be watching.</span>'
+  ];
+  typeLines($('#typed'), L, 140, () => { $('#startRow').style.visibility = 'visible'; $('#goBtn').focus(); });
+  $('#goBtn').onclick = () => { beep(520, .1); go(1); };
+}
+
+/* =========================================================
+   1. INTERCEPT
+   ========================================================= */
+function stage1() {
+  let html = '';
+  PASSAGE.forEach(seg => {
+    if (typeof seg === 'string') {
+      html += seg.split(/(\s+)/).map(tok => {
+        if (!tok.trim()) return tok;
+        const m = tok.match(/^([A-Za-z']+)(.*)$/);
+        return m ? `<span class="w">${m[1]}</span>${m[2]}` : tok;
+      }).join('');
+    } else {
+      const e = byId[seg.id];
+      html += `<span class="tg" data-id="${e.id}">${e.p.split(' ').map(w => `<span class="w">${w}</span>`).join(' ')}</span>`;
+    }
+  });
+  const order = PASSAGE.filter(s => typeof s !== 'string').map(s => s.id);
+
+  app.innerHTML = `
+    ${head('MISSION 1', 'INTERCEPT',
+      `Find <b>6 secret expressions</b> in the message. Each one has <b>2–3 words</b>. Click any word in it.`,
+      `지문 속에 <b>두세 단어가 모여 하나의 뜻</b>을 만드는 표현 6개가 숨어 있어요.<br>
+       찾아야 할 뜻: ~을 담당하는 / ~에 참여하다 / 알아내다 / ~에 공을 들이다 / ~을 줄이다 / 변화를 가져오다`,
+      '[!] Clicking a normal word = 1 alarm.')}
+    <div class="dim" style="margin-top:12px">&gt; intercepted_file: festival_team.msg</div>
+    <div class="passage" id="passage">${html}</div>
+    <div style="margin-top:10px">FOUND: <span class="inv" id="count">0 / 6</span></div>
+    <div class="slots">${order.map((id, i) => `<div class="slot" data-id="${id}">#${i + 1} ████████████</div>`).join('')}</div>`;
+
+  let found = 0;
+  $('#passage').onclick = ev => {
+    if (S.locked) return;
+    const w = ev.target.closest('.w'); if (!w) return;
+    const tg = w.closest('.tg');
+    if (tg) {
+      if (tg.classList.contains('found')) return;
+      tg.classList.add('found');
+      const slot = $(`.slot[data-id="${tg.dataset.id}"]`);
+      slot.classList.add('open');
+      decrypt(slot, `#${order.indexOf(tg.dataset.id) + 1} ${byId[tg.dataset.id].p}`, 300);
+      found++; $('#count').textContent = `${found} / 6`; beep(660, .1);
+      if (found === 6) setTimeout(() => complete(1), 700);
+    } else {
+      if (w.classList.contains('bad')) return;
+      w.classList.add('bad'); setTimeout(() => w.classList.remove('bad'), 1000);
+      strike('That is just a normal word.');
+    }
+  };
+}
+
+/* =========================================================
+   2. DECRYPT (matching)
+   ========================================================= */
+function stage2() {
+  const L = shuffle(EX), R = shuffle(EX);
+  const num = id => EX.findIndex(e => e.id === id) + 1;
+  app.innerHTML = `
+    ${head('MISSION 2', 'DECRYPT',
+      `Match each expression to its meaning.<br>&nbsp;1) Click an <b>expression</b> (left). &nbsp;2) Click its <b>meaning</b> (right).`,
+      KO_ALL, '[!] Wrong meaning = 1 alarm.')}
+    <div class="match">
+      <div class="col"><div class="dim">EXPRESSIONS</div>
+        ${L.map(e => `<button class="opt phrase" data-id="${e.id}">${e.p}<span class="dbgtag">#${num(e.id)}</span></button>`).join('')}</div>
+      <div class="col"><div class="dim">MEANINGS (encrypted)</div>
+        ${R.map(e => `<button class="opt def" data-id="${e.id}">${e.d}<span class="dbgtag">#${num(e.id)}</span></button>`).join('')}</div>
+    </div>
+    <div style="margin-top:10px">MATCHED: <span class="inv" id="mcount">0 / 6</span></div>`;
+
+  let sel = null, matched = 0;
+  $$('.phrase').forEach(b => b.onclick = () => {
+    if (S.locked || b.classList.contains('ok')) return;
+    $$('.phrase').forEach(x => x.classList.remove('sel'));
+    b.classList.add('sel'); sel = b.dataset.id; beep(440, .04);
+  });
+  $$('.def').forEach(b => b.onclick = () => {
+    if (S.locked || b.classList.contains('ok')) return;
+    if (!sel) { toast('First, click an expression on the left.'); return; }
+    const lb = $(`.phrase[data-id="${sel}"]`);
+    if (b.dataset.id === sel) {
+      lb.classList.remove('sel'); lb.classList.add('ok'); b.classList.add('ok');
+      lb.disabled = b.disabled = true; sel = null; matched++; beep(720, .1);
+      $('#mcount').textContent = `${matched} / 6`;
+      if (matched === 6) setTimeout(() => complete(2), 500);
+    } else {
+      b.classList.add('no'); setTimeout(() => b.classList.remove('no'), 600);
+      strike('Wrong meaning. Read again!');
+    }
+  });
+}
+
+/* =========================================================
+   3. FIREWALL (fill-in + corrupted line)
+   ========================================================= */
+function stage3() {
+  const items = shuffle(FIELD).slice(0, 4);
+  const sabs = shuffle(SAB).slice(0, 2);
+  const hint3 = KO_ALL + `<br><br>⚠ 작은 단어(<b>in, out, on</b>)와 문장의 <b>의미</b>가 맞는지 꼭 확인하세요!`;
+  let i = 0;
+
+  function renderA() {
+    const it = items[i], parts = it.s.split('___');
+    app.innerHTML = `
+      ${head('MISSION 3', 'FIREWALL',
+        `<b>Part A.</b> Fill in the blank with the best expression.`, hint3, '[!] Wrong choice = 1 alarm.')}
+      <div style="margin:12px 0 6px">FIREWALL CHECK <span class="inv">${i + 1} / ${items.length}</span> &nbsp;<span class="dim">LOCATION: ${it.tag}</span></div>
+      <div class="scene">&gt; ${parts[0]}<span class="blank" id="blank">${byId[it.id].p}</span>${parts[1]}</div>
+      <div class="opts">${shuffle(EX).map(e => `<button class="opt ${e.id === it.id ? 'ans' : ''}" data-id="${e.id}">${e.p}</button>`).join('')}</div>`;
+    $$('.opts .opt').forEach(b => b.onclick = () => {
+      if (S.locked || b.disabled) return;
+      if (b.dataset.id === it.id) {
+        $('#blank').classList.add('filled'); b.classList.add('ok');
+        $$('.opts .opt').forEach(x => x.disabled = true); beep(720, .1);
+        setTimeout(() => { i++; if (i < items.length) renderA(); else { i = 0; renderB(); } }, 900);
+      } else {
+        b.classList.add('no'); b.disabled = true;
+        strike('That expression does not fit here.');
+      }
+    });
+  }
+
+  function renderB() {
+    const sb = sabs[i];
+    app.innerHTML = `
+      ${head('MISSION 3', 'FIREWALL',
+        `<b>Part B.</b> B.O.R.E.D. corrupted <b>ONE</b> sentence. It is wrong in <b>grammar</b> or <b>meaning</b>. Click it!`,
+        hint3, '[!] Clicking a correct sentence = 1 alarm.')}
+      <div style="margin:12px 0 6px">CORRUPTION SCAN <span class="inv">${i + 1} / ${sabs.length}</span></div>
+      <div class="col sab">${shuffle(sb.list).map(o => `<button class="opt ${o.bad ? 'ans' : ''}" data-bad="${o.bad ? 1 : 0}">&gt; ${o.t}</button>`).join('')}</div>
+      <div id="exp"></div>`;
+    $$('.sab .opt').forEach(b => b.onclick = () => {
+      if (S.locked || b.disabled) return;
+      if (b.dataset.bad === '1') {
+        b.classList.add('caught'); b.innerHTML = '[CORRUPTED] ' + b.innerHTML;
+        $$('.sab .opt').forEach(x => x.disabled = true); beep(720, .1);
+        $('#exp').innerHTML = `<div class="explain">${sb.exp}</div>
+          <div class="row"><span></span><button class="btn" id="cont">CONTINUE</button></div>`;
+        $('#cont').focus();
+        $('#cont').onclick = () => { i++; if (i < sabs.length) renderB(); else complete(3); };
+      } else {
+        b.classList.add('ok'); b.disabled = true;
+        strike('That sentence is correct. Look again!');
+      }
+    });
+  }
+  renderA();
+}
+
+/* =========================================================
+   4. UPLOAD (writing, usage check only)
+   ========================================================= */
+function stage4() {
+  S.picks = shuffle(EX).slice(0, 3);
+  app.innerHTML = `
+    ${head('MISSION 4', 'UPLOAD',
+      `Write <b>one sentence about YOU</b> with each expression (<b>4+ words</b>). Then press UPLOAD.`,
+      S.picks.map(e => `<b>${e.p}</b> (${e.ko})<br>예시: <i>${PROMPTS[e.id].ex}</i>`).join('<br><br>'),
+      '[!] Missing expression or too short = 1 alarm.')}
+    <div style="margin-top:12px">
+    ${S.picks.map((e, k) => `
+      <div class="field" data-id="${e.id}">
+        <div>REPORT ${k + 1} · use <span class="inv">${e.p}</span></div>
+        <div class="dim">Q. ${PROMPTS[e.id].q}<span class="dbgtag">${PROMPTS[e.id].ex}</span></div>
+        <div class="prompt"><span>C:\\REPORT&gt;</span><input type="text" maxlength="140" autocomplete="off" spellcheck="false" placeholder="type your sentence here"></div>
+        <div class="status-line"></div>
+      </div>`).join('')}
+    </div>
+    <div class="row"><span class="dim">B.O.R.E.D. is watching the upload line. Hurry!</span><button class="btn" id="send">UPLOAD</button></div>`;
+
+  const norm = v => v.toLowerCase().replace(/[’]/g, "'").replace(/[^a-z' ]/g, ' ').replace(/\s+/g, ' ').trim();
+  $('#send').onclick = () => {
+    if (S.locked) return;
+    const fields = $$('.field');
+    if (fields.some(f => !$('input', f).value.trim())) { toast('Write all 3 sentences first, Agent.'); return; }
+    let fails = 0;
+    fields.forEach(f => {
+      const e = byId[f.dataset.id], v = norm($('input', f).value), st = $('.status-line', f);
+      const words = v.split(' ').filter(Boolean).length;
+      if (!RX[e.id].test(v)) { fails++; f.classList.remove('passed'); st.textContent = `[X] Can't find "${e.p}" in your sentence.`; }
+      else if (words < 4)    { fails++; f.classList.remove('passed'); st.textContent = '[X] Too short. Write at least 4 words.'; }
+      else                   { f.classList.add('passed'); st.textContent = '[OK] Expression confirmed.'; }
+    });
+    if (fails) strike(`${fails} sentence(s) need fixing.`);
+    else { beep(720, .15); setTimeout(() => complete(4), 600); }
+  };
+}
+
+/* =========================================================
+   5. LOGIN (password keypad)
+   ========================================================= */
+function vault() {
+  S.got = 4;
+  let entry = '', opened = false;
+  const code = S.code.join('');
+  app.innerHTML = `
+    ${head('FINAL', 'LOGIN', `Type the <b>4-digit password</b> from your NOTES.TXT. (You can also use your keyboard.)`)}
+    <div class="vault-wrap">
+      <div class="term">
+        <pre class="ascii" id="lockArt" style="text-align:center">${ART_LOCK}</pre>
+        <div>B.O.R.E.D. MAINFRAME LOGIN</div>
+        <div class="pwscreen" id="screen">_ _ _ _</div>
+        <div class="keys">
+          ${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => `<button class="key" data-k="${n}">${n}</button>`).join('')}
+          <button class="key wide" data-k="C">CLR</button>
+          <button class="key" data-k="0">0</button>
+          <button class="key wide" data-k="E">ENTER</button>
+        </div>
+      </div>
+      <div class="notes">
+        <div class="nh">NOTES.TXT</div>
+        <div class="hand">mainframe password!!<br>(don't forget)</div>
+        <div class="code">${code}</div>
+        <div class="hand">— trust no plants</div>
+      </div>
+    </div>`;
+
+  const screen = $('#screen');
+  const show = () => { screen.textContent = (entry + '____').slice(0, 4).split('').join(' '); };
+  function press(k) {
+    if (opened || screen.classList.contains('deny')) return;
+    if (/^[0-9]$/.test(k)) { if (entry.length < 4) { entry += k; beep(500 + Number(k) * 40, .06); show(); } }
+    else if (k === 'C') { entry = ''; beep(250, .06); show(); }
+    else if (k === 'E') {
+      if (entry.length < 4) { toast('Enter 4 numbers.'); return; }
+      if (entry === code) {
+        opened = true; screen.textContent = 'OK'; $('#lockArt').textContent = ART_UNLOCK;
+        [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => beep(f, .12, 'triangle'), i * 140));
+        setTimeout(() => go(6), 1600);
+      } else {
+        screen.classList.add('deny'); screen.textContent = 'ACCESS DENIED';
+        beep(110, .35, 'sawtooth');
+        setTimeout(() => { entry = ''; screen.classList.remove('deny'); show(); }, 900);
+      }
+    }
+  }
+  $$('.key').forEach(b => b.onclick = () => press(b.dataset.k));
+  S.keyH = ev => {
+    if (/^[0-9]$/.test(ev.key)) press(ev.key);
+    else if (ev.key === 'Enter') press('E');
+    else if (ev.key === 'Backspace' || ev.key === 'Escape') press('C');
+  };
+  document.addEventListener('keydown', S.keyH);
+}
+
+/* =========================================================
+   6. ENDING
+   ========================================================= */
+function ending() {
+  const t = S.total;
+  const [rank, msg] =
+    t === 0 ? ['ELITE HACKER', 'A perfect hack. B.O.R.E.D. is shaking.'] :
+    t <= 3  ? ['SENIOR AGENT', 'Excellent work. Only a few alarms.'] :
+    t <= 6  ? ['FIELD AGENT',  'Good job! Keep training, Agent.'] :
+              ['ROOKIE AGENT', 'You made it! Every agent starts somewhere.'];
+  app.innerHTML = `
+    <pre class="ascii">${ART_GRANTED}</pre>
+    <div class="typed" id="typed"></div>
+    <div id="after" style="display:none">
+      <pre class="ascii">${ART_BADGE}</pre>
+      <div>RANK: <span class="inv">${rank}</span> &nbsp; ${msg} &nbsp;<span class="dim">(total alarms: ${t})</span></div>
+      <div style="margin-top:12px" class="inv">YOUR SECRET EXPRESSIONS</div>
+      <div class="recap">${EX.map(e => `<div><b>${e.p}</b><br>${e.d}<br><span class="ko">${e.ko}</span></div>`).join('')}</div>
+      <div class="row"><span class="dim">P.S. The principal's plant was on our side all along.</span><button class="btn" id="again">PLAY AGAIN</button></div>
+    </div>`;
+  const L = [
+    'C:\\&gt; OPEN secret_file.txt',
+    '',
+    '<span class="inv">THE TRUTH</span>',
+    'The festival quiz booth was never just a booth.',
+    'It was a <b>test to find new secret agents</b>.',
+    'Mina was in charge of it from the start.',
+    '<b>And you passed.</b>',
+    '',
+    'Handler M: "Welcome to the team, Agent 8.',
+    '            Your small actions really made a difference.',
+    '            Now, let\'s cut down on B.O.R.E.D. instructions... forever."'
+  ];
+  typeLines($('#typed'), L, 160, () => {
+    $('#after').style.display = 'block';
+    $('#again').onclick = newGame;
+  });
+}
+
+/* =========================================================
+   DEBUG MODE
+   ========================================================= */
+const dbg = $('#debug');
+function toggleDebug(force) {
+  S.debug = force !== undefined ? force : !S.debug;
+  dbg.classList.toggle('show', S.debug);
+  updateDebugInfo();
+}
+function updateDebugInfo() {
+  const el = $('#dbgInfo'); if (!el) return;
+  el.innerHTML = `stage: ${S.stage} · alarms: ${S.strikes}/3<br>total mistakes: ${S.total}<br>password: <span class="inv">${S.code.join('')}</span>`;
+}
+$('#dbgClose').onclick = () => toggleDebug(false);
+dbg.addEventListener('click', ev => {
+  const b = ev.target.closest('button.d'); if (!b) return;
+  if (b.dataset.go !== undefined) {
+    const n = Number(b.dataset.go);
+    S.strikes = 0;
+    if (n >= 1 && n <= 5) S.got = Math.max(S.got, n - 1);
+    if (n === 6) S.got = 4;
+    go(n); return;
+  }
+  switch (b.dataset.act) {
+    case 'restart': newGame(); break;
+    case 'answers':
+      S.answers = !S.answers;
+      document.body.classList.toggle('dbg-ans', S.answers);
+      b.classList.toggle('on', S.answers);
+      b.textContent = 'SHOW ANSWERS: ' + (S.answers ? 'ON' : 'OFF');
+      break;
+    case 'clear':
+      if (S.stage >= 1 && S.stage <= 4 && overlay.classList.contains('hidden')) complete(S.stage);
+      else if (S.stage === 5) go(6);
+      else toast('DEBUG: nothing to clear here.');
+      break;
+    case 'fill':
+      if (S.stage !== 4) { toast('DEBUG: go to M4 first.'); break; }
+      $$('.field').forEach(f => $('input', f).value = PROMPTS[f.dataset.id].ex);
+      break;
+    case 'strike': strike('(debug)'); break;
+    case 'reset': S.strikes = 0; S.locked = false; updateHUD(); toast('DEBUG: alarm reset.'); break;
+    case 'code':
+      S.code = Array.from({length:4}, () => Math.floor(Math.random() * 10));
+      updateHUD(); if (S.stage === 5) go(5);
+      break;
+  }
+});
+
+/* ---------- global keys & buttons ---------- */
+$('#fHint').onclick = toggleHint;
+$('#fDebug').onclick = () => toggleDebug();
+document.addEventListener('keydown', ev => {
+  if (ev.key === 'F1') { ev.preventDefault(); toggleHint(); }
+  if (ev.key === 'F9' || (ev.key === '`' && document.activeElement.tagName !== 'INPUT')) { ev.preventDefault(); toggleDebug(); }
+});
+
+/* ---------- START ---------- */
+newGame();
+if (/[?&]debug=1/.test(location.search)) toggleDebug(true);
+</script>
+</body>
+</html>
