@@ -48,6 +48,8 @@
   .btn{background:#000; color:var(--g); border:1px solid var(--g); font:inherit; padding:2px 14px; cursor:pointer; text-shadow:inherit}
   .btn::before{content:'[ '} .btn::after{content:' ]'}
   .btn:hover,.btn:focus{background:var(--g); color:#000; text-shadow:none; outline:none}
+  .btn.pulse{animation:pulse .8s steps(1) infinite}
+  @keyframes pulse{50%{background:var(--g); color:#000; text-shadow:none}}
   .row{display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-top:16px}
   .hint-btn{background:#000; color:var(--gd); border:1px dashed var(--gd); font:inherit; cursor:pointer; padding:0 10px; text-shadow:inherit}
   .hint-btn:hover{color:#000; background:var(--gd)}
@@ -124,8 +126,8 @@
   /* ---------- CODEC (radio call) ---------- */
   .codec{display:grid; grid-template-columns:1fr auto 1fr; gap:14px; align-items:stretch; border:2px solid var(--g); padding:12px; margin-top:12px;
          background:#010a03; box-shadow:inset 0 0 40px rgba(51,255,102,.15), 0 0 18px rgba(51,255,102,.2)}
-  .pf{border:2px solid var(--g); padding:8px 6px 4px; text-align:center; position:relative; overflow:hidden; transition:opacity .25s; background:#000}
-  .pf pre{margin:0; font-size:19px; line-height:1.05; white-space:pre; display:inline-block; text-align:left; min-height:168px}
+  .pf{border:2px solid var(--g); padding:10px 6px 4px; text-align:center; position:relative; overflow:hidden; transition:opacity .25s; background:#000}
+  .pf pre{margin:0; font-size:19px; line-height:1.0; white-space:pre; display:inline-block; text-align:left; min-height:192px}
   .pf::after{content:''; position:absolute; inset:0; pointer-events:none;
              background:repeating-linear-gradient(0deg, rgba(51,255,102,.07) 0 2px, transparent 2px 5px); animation:roll 3s linear infinite}
   @keyframes roll{to{background-position:0 50px}}
@@ -173,7 +175,7 @@
     .debug{left:8px; right:8px; width:auto; top:auto; bottom:44px}
     .codec{grid-template-columns:1fr 1fr; gap:8px}
     .freq{grid-column:1 / -1; order:-1; flex-direction:row; flex-wrap:wrap; gap:10px; min-width:0}
-    .pf pre{font-size:13px; min-height:120px}
+    .pf pre{font-size:12px; min-height:122px}
     .fnum{font-size:32px}
     .say{font-size:22px}
   }
@@ -191,7 +193,7 @@
   <div class="fkeys">
     <button id="fHint"><b>F1</b> HINT</button>
     <button id="fDebug"><b>F9</b> DEBUG</button>
-    <span class="dim" style="margin-left:auto">SECRET OPERATION v1.1</span>
+    <span class="dim" style="margin-left:auto">SECRET OPERATION v1.2</span>
   </div>
 </div>
 
@@ -294,8 +296,24 @@ const RX = {
 
 const KO_ALL = EX.map(e => `<b>${e.p}</b> : ${e.ko}`).join('<br>');
 
-/* ending radio call script: [speaker, line]  A = Agent 8, M = Handler M */
-const CODEC = [
+/* radio call scripts: [speaker, line]  A = Agent 8, M = Handler M */
+const INTRO_CALL = [
+  ['M', 'Agent 8, this is Handler M. Do you read me?'],
+  ['A', 'Loud and clear, M. What\'s the situation?'],
+  ['M', 'The school festival is in danger.'],
+  ['M', 'A secret group wants to make it boring with super long instructions.'],
+  ['A', 'Who are they?'],
+  ['M', 'B.O.R.E.D. The Bureau Of Really Endless Directions.'],
+  ['M', 'They are everywhere. Even the principal\'s plant may be watching us.'],
+  ['A', '...The plant?'],
+  ['M', 'Focus, Agent. Your job is to hack their mainframe.'],
+  ['M', 'Clear 4 missions and collect 4 password numbers.'],
+  ['M', 'But be careful. 3 mistakes, and the alarm goes off.'],
+  ['A', 'Got it. I\'m ready.'],
+  ['M', 'Good luck, Agent 8. Over.']
+];
+
+const ENDING_CALL = [
   ['M', 'Agent 8, can you hear me? This is Handler M.'],
   ['A', 'Loud and clear, M. I\'m inside the mainframe.'],
   ['M', 'Great job. You <b>figured out</b> the password.'],
@@ -306,9 +324,8 @@ const CODEC = [
   ['M', 'No. You <b>worked on</b> a real mission. And B.O.R.E.D. is finished.'],
   ['M', 'We <b>cut down on</b> their long instructions... forever.'],
   ['M', 'Your small actions really <b>made a difference</b>. Welcome to the team, Agent 8.'],
-  ['M', 'Oh, and one more thing... don\'t trust the plant.'],
-  ['A', '...The plant?'],
-  ['M', 'Over and out.']
+  ['A', 'Thanks, M. Oh... what about the principal\'s plant?'],
+  ['M', '...It was on our side all along. Over and out.']
 ];
 
 /* =========================================================
@@ -375,30 +392,41 @@ const ART_BADGE = String.raw`
     \     CLEARED      /
      '----------------'`;
 
-/* radio portraits: line index 4 = mouth */
-const FACE_A = [
-  String.raw`   .-"""""-.   `,
-  String.raw`  /  _____  \  `,
-  String.raw` |  / o o \  | `,
-  String.raw`[|  |  ^  |  |]`,
-  String.raw` |  \ ___ /  | `,
-  String.raw`  \  '---'  /  `,
-  String.raw`  /'-.___.-'\  `,
-  String.raw` /  _/ | \_  \ `
-];
-const MOUTH_A = String.raw` |  \  O  /  | `;
-
-const FACE_M = [
-  String.raw`   ,-~~~~~-,   `,
-  String.raw`  / ,-----, \  `,
-  String.raw` | |[=]-[=]| | `,
-  String.raw` | |   >   | | `,
-  String.raw` | |  ---  | | `,
-  String.raw`  \ '-----' /  `,
-  String.raw`  /'-.___.-'\  `,
-  String.raw` /  _/ | \_  \ `
-];
-const MOUTH_M = String.raw` | |  (o)  | | `;
+/* radio portraits (21 chars wide, 10 lines) */
+const FACES = {
+  A: { // Agent 8: hood, headset, stern brows
+    lines: [
+      String.raw`      .---------.    `,
+      String.raw`     /  _______  \   `,
+      String.raw`    /  /       \  \  `,
+      String.raw`   |   | \   / |   | `,
+      String.raw`  [|   | o   o |   |]`,
+      String.raw`   |   |   >   |   | `,
+      String.raw`   |   \  ---  /   | `,
+      String.raw`    \   \_____/   /  `,
+      String.raw`     \___________/   `,
+      String.raw`   __/|   |8|   |\__ `
+    ],
+    mouth: 6,
+    open:  String.raw`   |   \  \_/  /   | `
+  },
+  M: { // Handler M: sharp bob, sunglasses, earpiece
+    lines: [
+      String.raw`      _________      `,
+      String.raw`    /'         '\    `,
+      String.raw`   / /'''''''''\ \   `,
+      String.raw`  | | [##]-[##] | |  `,
+      String.raw` @| |     \     | |  `,
+      String.raw`  | |    ___    | |  `,
+      String.raw`  | \           / |  `,
+      String.raw`  |_ \_________/ _|  `,
+      String.raw`       |     |       `,
+      String.raw`   ___/ \   / \___   `
+    ],
+    mouth: 5,
+    open:  String.raw`  | |    \_/    | |  `
+  }
+};
 
 /* =========================================================
    STATE & HELPERS
@@ -467,9 +495,11 @@ function strike(msg) {
 
 function closeOverlay() { overlay.classList.add('hidden'); overlay.innerHTML = ''; }
 
+function clearKeys() { if (S.keyH) { document.removeEventListener('keydown', S.keyH); S.keyH = null; } }
+
 function go(n) {
   S.run++; S.stage = n; S.stageM = 0; S.locked = false;
-  if (S.keyH) { document.removeEventListener('keydown', S.keyH); S.keyH = null; }
+  clearKeys();
   closeOverlay();
   [briefing, stage1, stage2, stage3, stage4, vault, ending][n]();
   updateHUD();
@@ -508,6 +538,137 @@ function decrypt(el, html, ms, done) {
     el.textContent = plain.split('').map((c, i) => c === ' ' ? ' ' : (i / plain.length < ratio ? c : chars[Math.random() * chars.length | 0])).join('');
     if (t >= steps) { clearInterval(iv); el.innerHTML = html; done && done(); }
   }, ms / steps);
+}
+
+/* =========================================================
+   RADIO CALL (shared by intro & ending)
+   ========================================================= */
+function codecHTML() {
+  return `
+    <div class="codec">
+      <div class="pf" id="pfA"><pre id="faceA"></pre><div class="pname">AGENT 8</div></div>
+      <div class="freq">
+        <div class="call" id="call">CALL</div>
+        <div class="tag">PTT</div>
+        <div class="meter" id="meter">${'<i></i>'.repeat(10)}</div>
+        <div class="fnum">◄ 141.08 ►</div>
+        <div class="tag">MEM</div>
+      </div>
+      <div class="pf" id="pfM"><pre id="faceM"></pre><div class="pname">HANDLER M</div></div>
+    </div>
+    <div class="ctext" id="ctext">
+      <div class="who" id="who">141.08</div>
+      <div class="say" id="say">INCOMING CALL...<span class="cursor"></span></div>
+      <div class="cnext" id="cnext">▼ CLICK / ENTER</div>
+    </div>
+    <div class="row" id="codecRow">
+      <button class="btn pulse" id="answer">ANSWER CALL</button>
+      <span class="dim" id="cprog"></span>
+      <button class="btn" id="skip" style="display:none">SKIP CALL</button>
+    </div>`;
+}
+
+function runCodec(slot, script, onEnd) {
+  slot.innerHTML = codecHTML();
+  const tok = S.run, alive = () => tok === S.run;
+  const faceA = $('#faceA'), faceM = $('#faceM'), pfA = $('#pfA'), pfM = $('#pfM');
+  const who = $('#who'), say = $('#say'), cnext = $('#cnext'), call = $('#call');
+  const bars = $$('#meter i');
+  let idx = 0, typing = false, answered = false, done = false;
+  let typeT = null, mouthT = null, meterT = null, finishFn = null;
+
+  const noise = () => Array.from({length:10}, () => Array.from({length:21}, () => '░▒▓  '[Math.random() * 5 | 0]).join('')).join('\n');
+  const drawFace = (side, open) => {
+    const f = FACES[side];
+    (side === 'A' ? faceA : faceM).textContent = f.lines.map((l, i) => i === f.mouth && open ? f.open : l).join('\n');
+  };
+  const setMeter = on => bars.forEach((b, i) => b.style.height = on ? (6 + Math.random() * 44 * (1 - i / 14)) + 'px' : '4px');
+  const stopAll = () => { clearInterval(typeT); clearInterval(mouthT); clearInterval(meterT); };
+
+  /* waiting: static + ringing */
+  faceA.textContent = noise(); faceM.textContent = noise();
+  call.classList.add('ring');
+  const idleT = setInterval(() => { if (!alive() || answered) return clearInterval(idleT); faceA.textContent = noise(); faceM.textContent = noise(); }, 160);
+  const ring = () => { if (!alive() || answered) return; beep(1200, .1); setTimeout(() => beep(900, .1), 130); };
+  ring();
+  const ringT = setInterval(() => { if (!alive() || answered) return clearInterval(ringT); ring(); }, 1300);
+  slot.scrollIntoView({behavior:'smooth', block:'start'});
+  $('#answer').focus({preventScroll:true});
+
+  function answer() {
+    if (answered) return;
+    answered = true;
+    clearInterval(ringT); clearInterval(idleT);
+    call.classList.remove('ring');
+    $('#answer').style.display = 'none'; $('#skip').style.display = '';
+    who.textContent = ''; say.textContent = 'CONNECTING...';
+    beep(1500, .05);
+    let n = 0;
+    const st = setInterval(() => {
+      if (!alive()) return clearInterval(st);
+      faceA.textContent = noise(); faceM.textContent = noise(); beep(200 + Math.random() * 300, .02, 'sawtooth');
+      if (++n > 7) { clearInterval(st); drawFace('A', false); drawFace('M', false); showLine(); }
+    }, 70);
+  }
+
+  function showLine() {
+    if (!alive()) return;
+    if (idx >= script.length) return endCall();
+    const [sp, html] = script[idx];
+    const tmp = document.createElement('div'); tmp.innerHTML = html;
+    const plain = tmp.textContent;
+    who.textContent = sp === 'M' ? 'HANDLER M' : 'AGENT 8';
+    pfM.classList.toggle('idle', sp !== 'M'); pfA.classList.toggle('idle', sp !== 'A');
+    $('#cprog').textContent = `${idx + 1} / ${script.length}`;
+    cnext.classList.remove('show');
+    let c = 0, open = false; typing = true;
+    stopAll();
+    mouthT = setInterval(() => { open = !open; drawFace(sp, open); }, 120);
+    meterT = setInterval(() => setMeter(true), 90);
+    typeT = setInterval(() => {
+      if (!alive()) return stopAll();
+      c++; say.textContent = plain.slice(0, c);
+      if (c % 2) beep(sp === 'M' ? 640 : 480, .02);
+      if (c >= plain.length) finishFn();
+    }, 30);
+    finishFn = () => {
+      stopAll(); typing = false;
+      say.innerHTML = html; drawFace(sp, false); setMeter(false);
+      cnext.classList.add('show');
+    };
+  }
+
+  function advance() {
+    if (!answered) { answer(); return; }
+    if (done) return;
+    if (typing) { finishFn(); return; }
+    idx++; showLine();
+  }
+
+  function endCall() {
+    if (done) return;
+    done = true; stopAll(); clearKeys();
+    who.textContent = ''; cnext.classList.remove('show');
+    say.textContent = '... SIGNAL LOST ...';
+    pfA.classList.remove('idle'); pfM.classList.remove('idle');
+    setMeter(false);
+    $('#skip').style.display = 'none';
+    let n = 0;
+    const st = setInterval(() => {
+      if (!alive()) return clearInterval(st);
+      faceA.textContent = noise(); faceM.textContent = noise(); beep(200 + Math.random() * 200, .02, 'sawtooth');
+      if (++n > 10) { clearInterval(st); onEnd && onEnd(); }
+    }, 80);
+  }
+
+  $('#answer').onclick = answer;
+  $('#ctext').onclick = advance;
+  $('#skip').onclick = () => { if (!answered) answered = true; endCall(); };
+  clearKeys();
+  S.keyH = ev => {
+    if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); advance(); }
+  };
+  document.addEventListener('keydown', S.keyH);
 }
 
 /* =========================================================
@@ -577,38 +738,39 @@ function complete(n) {
 }
 
 /* =========================================================
-   0. BOOT / BRIEFING
+   0. BOOT / INTRO CALL
    ========================================================= */
 function briefing() {
   app.innerHTML = `
     <pre class="ascii">${ART_LOGO}</pre>
-    <div class="typed" id="typed"></div>
-    <div class="row" id="startRow" style="visibility:hidden">
-      <span class="dim">(Click the text to skip typing)</span>
-      <button class="btn" id="goBtn">START HACKING</button>
+    ${hintBlock(`<b>줄거리</b><br>
+      학교 축제를 지루하게 만들려는 비밀 조직 <b>B.O.R.E.D.</b>가 나타났어요.<br>
+      여러분은 요원 <b>Agent 8</b>! 지휘관 <b>Handler M</b>의 무전을 받고,<br>
+      4개의 미션을 해결해 <b>비밀번호 4자리</b>를 모은 뒤 적의 컴퓨터를 해킹하세요.<br>
+      실수 <b>3번</b>이면 경보가 울리고 그 미션을 다시 해요.`)}
+    <div class="typed" id="typed" style="margin-top:8px"></div>
+    <div id="codecSlot"></div>
+    <div id="rules" style="display:none">
+      <pre class="ascii">${ART_PC}</pre>
+      <div class="obj"><span class="label">MISSION</span> Hack the <b>B.O.R.E.D.</b> mainframe and save the festival!
+        <div>1) Clear <b>4 missions</b> with 6 secret English expressions.</div>
+        <div>2) Each mission gives you <b>1 password number</b>.</div>
+        <div>3) Type the 4-digit password and break in.</div>
+        <div class="warn">[!] 3 mistakes = ALARM → you restart that mission.</div>
+        <div class="warn">[?] Stuck? Press F1 for Korean hints.</div>
+      </div>
+      <div class="row"><span></span><button class="btn pulse" id="goBtn">START HACKING</button></div>
     </div>`;
-  const L = [
+  typeLines($('#typed'), [
     'C:\\&gt; CONNECTING TO HQ ........ <b>OK</b>',
-    'FROM: Handler M &nbsp;&nbsp; TO: Agent 8',
-    '',
-    'Agent 8, the school festival is in danger.',
-    'A secret group, <span class="inv">B.O.R.E.D.</span> (Bureau Of Really Endless Directions),',
-    'wants to make the festival boring with super long instructions.',
-    '',
-    `<pre class="ascii" style="margin:0">${ART_PC}</pre>`,
-    '',
-    '<span class="inv">YOUR MISSION</span> Hack their mainframe.',
-    ' 1) Clear <b>4 missions</b> with 6 secret English expressions.',
-    ' 2) Each mission gives you <b>1 password number</b>.',
-    ' 3) Type the 4-digit password and break in.',
-    '',
-    '<span class="inv">RULES</span>',
-    ' [!] <b>3 mistakes = ALARM.</b> You restart that mission.',
-    ' [?] Stuck? Press <b>F1 HINT</b> for Korean hints.',
-    '',
-    '<span class="dim">P.S. They are everywhere. Even the principal\'s plant may be watching.</span>'
-  ];
-  typeLines($('#typed'), L, 140, () => { $('#startRow').style.visibility = 'visible'; $('#goBtn').focus(); });
+    '&gt; <span class="inv">INCOMING TRANSMISSION</span> from Handler M'
+  ], 450, () => {
+    runCodec($('#codecSlot'), INTRO_CALL, () => {
+      $('#rules').style.display = 'block';
+      $('#rules').scrollIntoView({behavior:'smooth', block:'start'});
+      $('#goBtn').focus({preventScroll:true});
+    });
+  });
   $('#goBtn').onclick = () => { beep(520, .1); go(1); };
 }
 
@@ -857,7 +1019,7 @@ function vault() {
 }
 
 /* =========================================================
-   6. ENDING — radio call with Handler M
+   6. ENDING CALL
    ========================================================= */
 function ending() {
   const t = S.total;
@@ -870,137 +1032,26 @@ function ending() {
   app.innerHTML = `
     <pre class="ascii">${ART_GRANTED}</pre>
     <div class="typed" id="typed"></div>
-
-    <div id="codecWrap" style="display:none">
-      <div class="codec">
-        <div class="pf" id="pfA"><pre id="faceA"></pre><div class="pname">AGENT 8</div></div>
-        <div class="freq">
-          <div class="call" id="call">CALL</div>
-          <div class="tag">PTT</div>
-          <div class="meter" id="meter">${'<i></i>'.repeat(10)}</div>
-          <div class="fnum">◄ 141.08 ►</div>
-          <div class="tag">MEM</div>
-        </div>
-        <div class="pf" id="pfM"><pre id="faceM"></pre><div class="pname">HANDLER M</div></div>
-      </div>
-      <div class="ctext" id="ctext">
-        <div class="who" id="who"></div>
-        <div class="say" id="say"></div>
-        <div class="cnext" id="cnext">▼ CLICK / ENTER</div>
-      </div>
-      <div class="row" id="codecRow"><span class="dim" id="cprog"></span><button class="btn" id="skip">SKIP CALL</button></div>
-    </div>
-
+    <div id="codecSlot"></div>
     <div id="after" style="display:none">
       <pre class="ascii">${ART_BADGE}</pre>
       <div>RANK: <span class="inv">${rank}</span> &nbsp; ${msg} &nbsp;<span class="dim">(total alarms: ${t})</span></div>
       <div style="margin-top:12px" class="inv">YOUR SECRET EXPRESSIONS</div>
       <div class="recap">${EX.map(e => `<div><b>${e.p}</b><br>${e.d}<br><span class="ko">${e.ko}</span></div>`).join('')}</div>
-      <div class="row"><span class="dim">P.S. The principal's plant was on our side all along.</span><button class="btn" id="again">PLAY AGAIN</button></div>
+      <div class="row"><span class="dim">MISSION COMPLETE. B.O.R.E.D. is offline.</span><button class="btn" id="again">PLAY AGAIN</button></div>
     </div>`;
 
   typeLines($('#typed'), [
     'C:\\&gt; OPEN secret_file.txt',
     '&gt; file is EMPTY...?',
-    '&gt; <span class="inv">INCOMING TRANSMISSION</span>'
-  ], 450, startCodec);
-
-  function startCodec() {
-    const tok = S.run;
-    const wrap = $('#codecWrap'), faceA = $('#faceA'), faceM = $('#faceM');
-    const pfA = $('#pfA'), pfM = $('#pfM'), who = $('#who'), say = $('#say'), cnext = $('#cnext');
-    const bars = $$('#meter i');
-    let idx = 0, typing = false, typeT = null, mouthT = null, meterT = null, done = false;
-
-    const noise = () => Array.from({length:8}, () => Array.from({length:15}, () => '░▒▓ '[Math.random() * 4 | 0]).join('')).join('\n');
-    const drawFace = (side, open) => {
-      const base = side === 'A' ? FACE_A : FACE_M, mouth = side === 'A' ? MOUTH_A : MOUTH_M;
-      (side === 'A' ? faceA : faceM).textContent = base.map((l, i) => i === 4 && open ? mouth : l).join('\n');
-    };
-    const setMeter = active => bars.forEach((b, i) => b.style.height = active ? (6 + Math.random() * 44 * (1 - i / 14)) + 'px' : '4px');
-
-    wrap.style.display = 'block';
-    faceA.textContent = noise(); faceM.textContent = noise();
-    wrap.scrollIntoView({behavior:'smooth', block:'start'});
-
-    // incoming call ring
-    $('#call').classList.add('ring');
-    [0, 400, 800].forEach(d => setTimeout(() => { if (tok === S.run) { beep(1200, .12, 'square'); setTimeout(() => beep(900, .12, 'square'), 140); } }, d));
-    const staticT = setInterval(() => { if (tok !== S.run) return clearInterval(staticT); faceA.textContent = noise(); faceM.textContent = noise(); }, 90);
-    setTimeout(() => {
-      if (tok !== S.run) return;
-      clearInterval(staticT);
-      $('#call').classList.remove('ring');
-      drawFace('A', false); drawFace('M', false);
-      showLine();
-    }, 1300);
-
-    function showLine() {
-      if (idx >= CODEC.length) return endCall();
-      const [sp, html] = CODEC[idx];
-      const tmp = document.createElement('div'); tmp.innerHTML = html;
-      const plain = tmp.textContent;
-      who.textContent = sp === 'M' ? 'HANDLER M' : 'AGENT 8';
-      pfM.classList.toggle('idle', sp !== 'M'); pfA.classList.toggle('idle', sp !== 'A');
-      $('#cprog').textContent = `${idx + 1} / ${CODEC.length}`;
-      cnext.classList.remove('show');
-      let c = 0, open = false; typing = true;
-      clearInterval(mouthT); clearInterval(meterT);
-      mouthT = setInterval(() => { open = !open; drawFace(sp, open); }, 120);
-      meterT = setInterval(() => setMeter(true), 90);
-      typeT = setInterval(() => {
-        if (tok !== S.run) return stopAll();
-        c++; say.textContent = plain.slice(0, c);
-        if (c % 2) beep(sp === 'M' ? 640 : 480, .02);
-        if (c >= plain.length) finishLine();
-      }, 30);
-      function finishLine() {
-        clearInterval(typeT); clearInterval(mouthT); clearInterval(meterT);
-        typing = false; say.innerHTML = html; drawFace(sp, false); setMeter(false);
-        cnext.classList.add('show');
-      }
-      showLine.finish = finishLine;
-    }
-
-    function advance() {
-      if (done) return;
-      if (typing) { showLine.finish(); return; }
-      idx++; showLine();
-    }
-
-    function stopAll() { clearInterval(typeT); clearInterval(mouthT); clearInterval(meterT); }
-
-    function endCall() {
-      if (done) return;
-      done = true; stopAll();
-      who.textContent = ''; cnext.classList.remove('show');
-      say.textContent = '... SIGNAL LOST ...';
-      pfA.classList.remove('idle'); pfM.classList.remove('idle');
-      setMeter(false);
-      let n = 0;
-      const st = setInterval(() => {
-        if (tok !== S.run) return clearInterval(st);
-        faceA.textContent = noise(); faceM.textContent = noise(); beep(200 + Math.random() * 200, .02, 'sawtooth');
-        if (++n > 10) {
-          clearInterval(st);
-          $('#codecRow').style.display = 'none';
-          $('#after').style.display = 'block';
-          $('#after').scrollIntoView({behavior:'smooth', block:'start'});
-          $('#again').onclick = newGame;
-        }
-      }, 80);
-    }
-
-    $('#ctext').onclick = advance;
-    $('#skip').onclick = endCall;
-    S.keyH = ev => {
-      if (ev.key === 'Enter' || ev.key === ' ') {
-        if (document.activeElement && document.activeElement.id === 'again') return;
-        ev.preventDefault(); advance();
-      }
-    };
-    document.addEventListener('keydown', S.keyH);
-  }
+    '&gt; <span class="inv">INCOMING TRANSMISSION</span> from Handler M'
+  ], 450, () => {
+    runCodec($('#codecSlot'), ENDING_CALL, () => {
+      $('#after').style.display = 'block';
+      $('#after').scrollIntoView({behavior:'smooth', block:'start'});
+      $('#again').onclick = newGame;
+    });
+  });
 }
 
 /* =========================================================
