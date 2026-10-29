@@ -13,7 +13,6 @@
     margin:0; color:var(--g); font-family:'VT323','Courier New',monospace; font-size:22px; line-height:1.3;
     text-shadow:0 0 4px rgba(51,255,102,.55);
   }
-  /* CRT scanlines + vignette */
   body::after{
     content:''; position:fixed; inset:0; pointer-events:none; z-index:200;
     background:
@@ -122,6 +121,30 @@
   .recap .ko{font-family:'D2Coding','Malgun Gothic',monospace; font-size:14px; color:var(--gd)}
   .typed div{min-height:26px}
 
+  /* ---------- CODEC (radio call) ---------- */
+  .codec{display:grid; grid-template-columns:1fr auto 1fr; gap:14px; align-items:stretch; border:2px solid var(--g); padding:12px; margin-top:12px;
+         background:#010a03; box-shadow:inset 0 0 40px rgba(51,255,102,.15), 0 0 18px rgba(51,255,102,.2)}
+  .pf{border:2px solid var(--g); padding:8px 6px 4px; text-align:center; position:relative; overflow:hidden; transition:opacity .25s; background:#000}
+  .pf pre{margin:0; font-size:19px; line-height:1.05; white-space:pre; display:inline-block; text-align:left; min-height:168px}
+  .pf::after{content:''; position:absolute; inset:0; pointer-events:none;
+             background:repeating-linear-gradient(0deg, rgba(51,255,102,.07) 0 2px, transparent 2px 5px); animation:roll 3s linear infinite}
+  @keyframes roll{to{background-position:0 50px}}
+  .pf.idle{opacity:.35}
+  .pname{border-top:1px solid var(--gdim); margin-top:4px; letter-spacing:2px}
+  .freq{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; min-width:170px}
+  .call{background:var(--g); color:#000; text-shadow:none; padding:0 12px; font-size:26px; visibility:hidden}
+  .call.ring{visibility:visible; animation:blink .4s steps(1) infinite}
+  .tag{border:1px solid var(--g); padding:0 10px; font-size:18px; letter-spacing:2px}
+  .meter{display:flex; gap:3px; align-items:flex-end; height:50px}
+  .meter i{width:9px; height:4px; background:var(--g); box-shadow:0 0 6px var(--g); transition:height .08s}
+  .fnum{font-size:42px; letter-spacing:2px; line-height:1}
+  .ctext{border:2px solid var(--g); margin-top:10px; padding:8px 14px 22px; min-height:104px; cursor:pointer; position:relative; background:#010a03}
+  .who{display:inline-block; color:#000; background:var(--g); text-shadow:none; padding:0 8px; margin-bottom:4px; min-height:24px}
+  .say{font-size:26px; line-height:1.3}
+  .say b{background:var(--gd); color:#000; text-shadow:none; padding:0 4px; font-weight:normal}
+  .cnext{position:absolute; right:10px; bottom:2px; font-size:17px; display:none; animation:blink 1s steps(1) infinite}
+  .cnext.show{display:block}
+
   /* ---------- TOAST ---------- */
   .toast{position:fixed; left:50%; bottom:44px; transform:translate(-50%,200px); background:#000; border:1px solid var(--g); padding:6px 14px; max-width:92vw; z-index:90; transition:transform .25s}
   .toast.show{transform:translate(-50%,0)}
@@ -148,6 +171,11 @@
     pre.ascii{font-size:13px}
     .scene{font-size:21px}
     .debug{left:8px; right:8px; width:auto; top:auto; bottom:44px}
+    .codec{grid-template-columns:1fr 1fr; gap:8px}
+    .freq{grid-column:1 / -1; order:-1; flex-direction:row; flex-wrap:wrap; gap:10px; min-width:0}
+    .pf pre{font-size:13px; min-height:120px}
+    .fnum{font-size:32px}
+    .say{font-size:22px}
   }
 </style>
 </head>
@@ -163,7 +191,7 @@
   <div class="fkeys">
     <button id="fHint"><b>F1</b> HINT</button>
     <button id="fDebug"><b>F9</b> DEBUG</button>
-    <span class="dim" style="margin-left:auto">SECRET OPERATION v1.0</span>
+    <span class="dim" style="margin-left:auto">SECRET OPERATION v1.1</span>
   </div>
 </div>
 
@@ -266,6 +294,23 @@ const RX = {
 
 const KO_ALL = EX.map(e => `<b>${e.p}</b> : ${e.ko}`).join('<br>');
 
+/* ending radio call script: [speaker, line]  A = Agent 8, M = Handler M */
+const CODEC = [
+  ['M', 'Agent 8, can you hear me? This is Handler M.'],
+  ['A', 'Loud and clear, M. I\'m inside the mainframe.'],
+  ['M', 'Great job. You <b>figured out</b> the password.'],
+  ['A', 'Wait... this secret file is empty. Where is the secret?'],
+  ['M', 'YOU are the secret. The quiz booth was a test to find new agents.'],
+  ['M', 'I was <b>in charge of</b> it from the start.'],
+  ['A', 'So I didn\'t just <b>take part in</b> a game...?'],
+  ['M', 'No. You <b>worked on</b> a real mission. And B.O.R.E.D. is finished.'],
+  ['M', 'We <b>cut down on</b> their long instructions... forever.'],
+  ['M', 'Your small actions really <b>made a difference</b>. Welcome to the team, Agent 8.'],
+  ['M', 'Oh, and one more thing... don\'t trust the plant.'],
+  ['A', '...The plant?'],
+  ['M', 'Over and out.']
+];
+
 /* =========================================================
    ASCII ART
    ========================================================= */
@@ -329,6 +374,31 @@ const ART_BADGE = String.raw`
    |    [  AGENT 8  ]   |
     \     CLEARED      /
      '----------------'`;
+
+/* radio portraits: line index 4 = mouth */
+const FACE_A = [
+  String.raw`   .-"""""-.   `,
+  String.raw`  /  _____  \  `,
+  String.raw` |  / o o \  | `,
+  String.raw`[|  |  ^  |  |]`,
+  String.raw` |  \ ___ /  | `,
+  String.raw`  \  '---'  /  `,
+  String.raw`  /'-.___.-'\  `,
+  String.raw` /  _/ | \_  \ `
+];
+const MOUTH_A = String.raw` |  \  O  /  | `;
+
+const FACE_M = [
+  String.raw`   ,-~~~~~-,   `,
+  String.raw`  / ,-----, \  `,
+  String.raw` | |[=]-[=]| | `,
+  String.raw` | |   >   | | `,
+  String.raw` | |  ---  | | `,
+  String.raw`  \ '-----' /  `,
+  String.raw`  /'-.___.-'\  `,
+  String.raw` /  _/ | \_  \ `
+];
+const MOUTH_M = String.raw` | |  (o)  | | `;
 
 /* =========================================================
    STATE & HELPERS
@@ -787,7 +857,7 @@ function vault() {
 }
 
 /* =========================================================
-   6. ENDING
+   6. ENDING — radio call with Handler M
    ========================================================= */
 function ending() {
   const t = S.total;
@@ -796,9 +866,31 @@ function ending() {
     t <= 3  ? ['SENIOR AGENT', 'Excellent work. Only a few alarms.'] :
     t <= 6  ? ['FIELD AGENT',  'Good job! Keep training, Agent.'] :
               ['ROOKIE AGENT', 'You made it! Every agent starts somewhere.'];
+
   app.innerHTML = `
     <pre class="ascii">${ART_GRANTED}</pre>
     <div class="typed" id="typed"></div>
+
+    <div id="codecWrap" style="display:none">
+      <div class="codec">
+        <div class="pf" id="pfA"><pre id="faceA"></pre><div class="pname">AGENT 8</div></div>
+        <div class="freq">
+          <div class="call" id="call">CALL</div>
+          <div class="tag">PTT</div>
+          <div class="meter" id="meter">${'<i></i>'.repeat(10)}</div>
+          <div class="fnum">◄ 141.08 ►</div>
+          <div class="tag">MEM</div>
+        </div>
+        <div class="pf" id="pfM"><pre id="faceM"></pre><div class="pname">HANDLER M</div></div>
+      </div>
+      <div class="ctext" id="ctext">
+        <div class="who" id="who"></div>
+        <div class="say" id="say"></div>
+        <div class="cnext" id="cnext">▼ CLICK / ENTER</div>
+      </div>
+      <div class="row" id="codecRow"><span class="dim" id="cprog"></span><button class="btn" id="skip">SKIP CALL</button></div>
+    </div>
+
     <div id="after" style="display:none">
       <pre class="ascii">${ART_BADGE}</pre>
       <div>RANK: <span class="inv">${rank}</span> &nbsp; ${msg} &nbsp;<span class="dim">(total alarms: ${t})</span></div>
@@ -806,23 +898,109 @@ function ending() {
       <div class="recap">${EX.map(e => `<div><b>${e.p}</b><br>${e.d}<br><span class="ko">${e.ko}</span></div>`).join('')}</div>
       <div class="row"><span class="dim">P.S. The principal's plant was on our side all along.</span><button class="btn" id="again">PLAY AGAIN</button></div>
     </div>`;
-  const L = [
+
+  typeLines($('#typed'), [
     'C:\\&gt; OPEN secret_file.txt',
-    '',
-    '<span class="inv">THE TRUTH</span>',
-    'The festival quiz booth was never just a booth.',
-    'It was a <b>test to find new secret agents</b>.',
-    'Mina was in charge of it from the start.',
-    '<b>And you passed.</b>',
-    '',
-    'Handler M: "Welcome to the team, Agent 8.',
-    '            Your small actions really made a difference.',
-    '            Now, let\'s cut down on B.O.R.E.D. instructions... forever."'
-  ];
-  typeLines($('#typed'), L, 160, () => {
-    $('#after').style.display = 'block';
-    $('#again').onclick = newGame;
-  });
+    '&gt; file is EMPTY...?',
+    '&gt; <span class="inv">INCOMING TRANSMISSION</span>'
+  ], 450, startCodec);
+
+  function startCodec() {
+    const tok = S.run;
+    const wrap = $('#codecWrap'), faceA = $('#faceA'), faceM = $('#faceM');
+    const pfA = $('#pfA'), pfM = $('#pfM'), who = $('#who'), say = $('#say'), cnext = $('#cnext');
+    const bars = $$('#meter i');
+    let idx = 0, typing = false, typeT = null, mouthT = null, meterT = null, done = false;
+
+    const noise = () => Array.from({length:8}, () => Array.from({length:15}, () => '░▒▓ '[Math.random() * 4 | 0]).join('')).join('\n');
+    const drawFace = (side, open) => {
+      const base = side === 'A' ? FACE_A : FACE_M, mouth = side === 'A' ? MOUTH_A : MOUTH_M;
+      (side === 'A' ? faceA : faceM).textContent = base.map((l, i) => i === 4 && open ? mouth : l).join('\n');
+    };
+    const setMeter = active => bars.forEach((b, i) => b.style.height = active ? (6 + Math.random() * 44 * (1 - i / 14)) + 'px' : '4px');
+
+    wrap.style.display = 'block';
+    faceA.textContent = noise(); faceM.textContent = noise();
+    wrap.scrollIntoView({behavior:'smooth', block:'start'});
+
+    // incoming call ring
+    $('#call').classList.add('ring');
+    [0, 400, 800].forEach(d => setTimeout(() => { if (tok === S.run) { beep(1200, .12, 'square'); setTimeout(() => beep(900, .12, 'square'), 140); } }, d));
+    const staticT = setInterval(() => { if (tok !== S.run) return clearInterval(staticT); faceA.textContent = noise(); faceM.textContent = noise(); }, 90);
+    setTimeout(() => {
+      if (tok !== S.run) return;
+      clearInterval(staticT);
+      $('#call').classList.remove('ring');
+      drawFace('A', false); drawFace('M', false);
+      showLine();
+    }, 1300);
+
+    function showLine() {
+      if (idx >= CODEC.length) return endCall();
+      const [sp, html] = CODEC[idx];
+      const tmp = document.createElement('div'); tmp.innerHTML = html;
+      const plain = tmp.textContent;
+      who.textContent = sp === 'M' ? 'HANDLER M' : 'AGENT 8';
+      pfM.classList.toggle('idle', sp !== 'M'); pfA.classList.toggle('idle', sp !== 'A');
+      $('#cprog').textContent = `${idx + 1} / ${CODEC.length}`;
+      cnext.classList.remove('show');
+      let c = 0, open = false; typing = true;
+      clearInterval(mouthT); clearInterval(meterT);
+      mouthT = setInterval(() => { open = !open; drawFace(sp, open); }, 120);
+      meterT = setInterval(() => setMeter(true), 90);
+      typeT = setInterval(() => {
+        if (tok !== S.run) return stopAll();
+        c++; say.textContent = plain.slice(0, c);
+        if (c % 2) beep(sp === 'M' ? 640 : 480, .02);
+        if (c >= plain.length) finishLine();
+      }, 30);
+      function finishLine() {
+        clearInterval(typeT); clearInterval(mouthT); clearInterval(meterT);
+        typing = false; say.innerHTML = html; drawFace(sp, false); setMeter(false);
+        cnext.classList.add('show');
+      }
+      showLine.finish = finishLine;
+    }
+
+    function advance() {
+      if (done) return;
+      if (typing) { showLine.finish(); return; }
+      idx++; showLine();
+    }
+
+    function stopAll() { clearInterval(typeT); clearInterval(mouthT); clearInterval(meterT); }
+
+    function endCall() {
+      if (done) return;
+      done = true; stopAll();
+      who.textContent = ''; cnext.classList.remove('show');
+      say.textContent = '... SIGNAL LOST ...';
+      pfA.classList.remove('idle'); pfM.classList.remove('idle');
+      setMeter(false);
+      let n = 0;
+      const st = setInterval(() => {
+        if (tok !== S.run) return clearInterval(st);
+        faceA.textContent = noise(); faceM.textContent = noise(); beep(200 + Math.random() * 200, .02, 'sawtooth');
+        if (++n > 10) {
+          clearInterval(st);
+          $('#codecRow').style.display = 'none';
+          $('#after').style.display = 'block';
+          $('#after').scrollIntoView({behavior:'smooth', block:'start'});
+          $('#again').onclick = newGame;
+        }
+      }, 80);
+    }
+
+    $('#ctext').onclick = advance;
+    $('#skip').onclick = endCall;
+    S.keyH = ev => {
+      if (ev.key === 'Enter' || ev.key === ' ') {
+        if (document.activeElement && document.activeElement.id === 'again') return;
+        ev.preventDefault(); advance();
+      }
+    };
+    document.addEventListener('keydown', S.keyH);
+  }
 }
 
 /* =========================================================
